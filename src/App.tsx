@@ -19,6 +19,10 @@ import {
   getStoredSOP,
   saveSOP,
   getStoredPin,
+  getStoredOpenTabs,
+  saveOpenTabs,
+  getStoredActiveWebTab,
+  saveActiveWebTab,
 } from './utils/storage';
 import { Header } from './components/Header';
 import { BottomNav } from './components/BottomNav';
@@ -27,6 +31,8 @@ import { BerkasTab } from './components/Berkas/BerkasTab';
 import { ReportTab } from './components/Report/ReportTab';
 import { RingkasanTab } from './components/Ringkasan/RingkasanTab';
 import { ToolsTab } from './components/Tools/ToolsTab';
+import { InAppBrowser } from './components/Browser/InAppBrowser';
+import { EditWebsiteModal } from './components/Operasional/EditWebsiteModal';
 import { GlobalSearchModal } from './components/GlobalSearchModal';
 import { SettingsModal } from './components/SettingsModal';
 import { NotificationModal } from './components/NotificationModal';
@@ -34,7 +40,7 @@ import { AppLockModal } from './components/AppLockModal';
 import { ToastContainer, ToastMessage } from './components/Toast';
 
 export default function App() {
-  // Navigation
+  // Navigation: 'operasional' (Beranda), 'berkas', 'report', 'ringkasan', 'tools' (Menu)
   const [activeTab, setActiveTab] = useState<TabType>('operasional');
   const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
@@ -44,6 +50,18 @@ export default function App() {
   const [files, setFiles] = useState<WorkFileItem[]>(() => getStoredFiles());
   const [quickNotes, setQuickNotes] = useState<QuickNoteItem[]>(() => getStoredQuickNotes());
   const [sopList, setSopList] = useState<SOPChecklistItem[]>(() => getStoredSOP());
+
+  // In-App Desktop-like Multi-Tab Browser State
+  const [openTabIds, setOpenTabIds] = useState<string[]>(() => {
+    const stored = getStoredOpenTabs();
+    return stored.length > 0 ? stored : ['web-4']; // Default to Live Chat tab open
+  });
+  const [activeWebTabId, setActiveWebTabId] = useState<string | null>(() => {
+    const stored = getStoredActiveWebTab();
+    return stored || 'web-4';
+  });
+  const [isBrowserOpen, setIsBrowserOpen] = useState<boolean>(false);
+  const [editingWebsiteTarget, setEditingWebsiteTarget] = useState<WebsiteItem | null>(null);
 
   // App Lock
   const [isAppLocked, setIsAppLocked] = useState<boolean>(false);
@@ -105,6 +123,75 @@ export default function App() {
     setSopList(getStoredSOP());
   };
 
+  // Open Website inside In-App Browser (prevents duplicate tabs)
+  const handleOpenWebsiteInApp = (websiteId: string) => {
+    // 1. Add tab if not already opened
+    if (!openTabIds.includes(websiteId)) {
+      const newTabs = [...openTabIds, websiteId];
+      setOpenTabIds(newTabs);
+      saveOpenTabs(newTabs);
+    }
+
+    // 2. Set as active tab
+    setActiveWebTabId(websiteId);
+    saveActiveWebTab(websiteId);
+
+    // 3. Mark last opened timestamp
+    const nowIso = new Date().toISOString();
+    const updatedWebsites = websites.map((w) =>
+      w.id === websiteId ? { ...w, lastOpened: nowIso } : w
+    );
+    handleUpdateWebsites(updatedWebsites);
+
+    // 4. Open browser view
+    setIsBrowserOpen(true);
+
+    const site = websites.find((w) => w.id === websiteId);
+    showToast(`Membuka ${site?.name || 'Website'} di dalam aplikasi...`, 'info');
+  };
+
+  const handleSelectBrowserTab = (tabId: string) => {
+    setActiveWebTabId(tabId);
+    saveActiveWebTab(tabId);
+
+    // Update last opened
+    const nowIso = new Date().toISOString();
+    const updatedWebsites = websites.map((w) =>
+      w.id === tabId ? { ...w, lastOpened: nowIso } : w
+    );
+    handleUpdateWebsites(updatedWebsites);
+  };
+
+  const handleCloseBrowserTab = (tabId: string) => {
+    const updated = openTabIds.filter((id) => id !== tabId);
+    setOpenTabIds(updated);
+    saveOpenTabs(updated);
+
+    if (activeWebTabId === tabId) {
+      if (updated.length > 0) {
+        setActiveWebTabId(updated[updated.length - 1]);
+        saveActiveWebTab(updated[updated.length - 1]);
+      } else {
+        setActiveWebTabId(null);
+        saveActiveWebTab(null);
+        setIsBrowserOpen(false);
+      }
+    }
+  };
+
+  const handleResumeLastWork = () => {
+    if (openTabIds.length > 0) {
+      setIsBrowserOpen(true);
+    } else if (websites.length > 0) {
+      handleOpenWebsiteInApp(websites[0].id);
+    }
+  };
+
+  // Active website name for Header pill
+  const activeWebsite = useMemo(() => {
+    return websites.find((w) => w.id === activeWebTabId) || null;
+  }, [websites, activeWebTabId]);
+
   // Unresolved pending reports count for badges
   const pendingReportsCount = useMemo(() => {
     return reports.filter((r) => r.status === 'tertunda' || r.status === 'prioritas').length;
@@ -141,7 +228,7 @@ export default function App() {
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={dismissToast} />
 
-      {/* Top Header Bar */}
+      {/* Top Header Bar ("ADMIN 1 FOR ALL") */}
       <Header
         activeTab={activeTab}
         onTabChange={setActiveTab}
@@ -149,6 +236,9 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         onOpenNotifications={() => setIsNotificationsOpen(true)}
         pendingCount={pendingReportsCount}
+        openWebTabsCount={openTabIds.length}
+        onOpenActiveBrowser={() => setIsBrowserOpen(true)}
+        activeWebsiteName={activeWebsite?.name}
       />
 
       {/* Main Content Viewport */}
@@ -157,9 +247,18 @@ export default function App() {
           <OperasionalTab
             websites={websites}
             reports={reports}
+            filesCount={files.length}
+            openTabIds={openTabIds}
+            activeWebTabId={activeWebTabId}
             onUpdateWebsites={handleUpdateWebsites}
             onNavigateTab={setActiveTab}
-            onOpenReportDetail={(id) => {
+            onOpenWebsiteInApp={handleOpenWebsiteInApp}
+            onResumeLastWork={handleResumeLastWork}
+            onOpenAddReport={() => {
+              setSelectedReportId(null);
+              setActiveTab('report');
+            }}
+            onSelectReport={(id) => {
               setSelectedReportId(id);
               setActiveTab('report');
             }}
@@ -213,6 +312,33 @@ export default function App() {
         pendingReportsCount={pendingReportsCount}
       />
 
+      {/* DESKTOP-LIKE IN-APP BROWSER (Preserves iframe state, tabs on top, fallback buttons) */}
+      <InAppBrowser
+        isOpen={isBrowserOpen}
+        activeTabId={activeWebTabId}
+        openTabIds={openTabIds}
+        websites={websites}
+        onSelectTab={handleSelectBrowserTab}
+        onCloseTab={handleCloseBrowserTab}
+        onOpenNewTab={handleOpenWebsiteInApp}
+        onMinimize={() => setIsBrowserOpen(false)}
+        onEditWebsite={(w) => setEditingWebsiteTarget(w)}
+        onShowToast={showToast}
+      />
+
+      {/* Global Edit Website & Logo Modal */}
+      <EditWebsiteModal
+        isOpen={Boolean(editingWebsiteTarget)}
+        onClose={() => setEditingWebsiteTarget(null)}
+        website={editingWebsiteTarget}
+        onSave={(updated) => {
+          handleUpdateWebsites(
+            websites.map((w) => (w.id === updated.id ? updated : w))
+          );
+          showToast(`Pengaturan "${updated.name}" disimpan`);
+        }}
+      />
+
       {/* Global Universal Search */}
       <GlobalSearchModal
         isOpen={isSearchOpen}
@@ -228,10 +354,7 @@ export default function App() {
           setActiveTab('berkas');
         }}
         onSelectWebsite={(web) => {
-          setActiveTab('operasional');
-          if (web.url) {
-            window.open(web.url, '_blank', 'noopener,noreferrer');
-          }
+          handleOpenWebsiteInApp(web.id);
         }}
         onNavigateTab={setActiveTab}
       />

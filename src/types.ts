@@ -65,13 +65,26 @@ export interface WebsiteItem {
   id: string;
   order: number;
   name: string;
+  shortCode: string; // e.g. "MD", "US", "CB", "LC", "TW", "BS", "BK", "PNG", "PWR", "AS", "MSG", "QR"
   url?: string; // If empty, displays "URL belum diatur"
+  logoUrl?: string; // Custom uploaded image / icon
+  badgeColor?: string; // Accent color hex or name
   status: 'online' | 'active' | 'maintenance' | 'siap';
   isPinned: boolean;
   isFavorite: boolean;
   category?: string;
   notes?: string;
   lastOpened?: string;
+}
+
+export interface BrowserTab {
+  id: string; // tab session id
+  websiteId: string;
+  title: string;
+  shortCode: string;
+  url: string;
+  logoUrl?: string;
+  badgeColor?: string;
 }
 
 export interface QuickNoteItem {

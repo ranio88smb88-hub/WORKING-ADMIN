@@ -22,6 +22,8 @@ const STORAGE_KEYS = {
   NOTES: 'awc_notes_data_v2',
   PIN: 'awc_pin_code',
   AUTO_LOCK: 'awc_auto_lock_enabled',
+  OPEN_TABS: 'awc_open_web_tabs_v1',
+  ACTIVE_WEB_TAB: 'awc_active_web_tab_id_v1',
 };
 
 // --- WEBSITES ---
@@ -34,11 +36,57 @@ export const getStoredWebsites = (): WebsiteItem[] => {
     }
     const parsed: WebsiteItem[] = JSON.parse(raw);
     if (!Array.isArray(parsed) || parsed.length === 0) return INITIAL_WEBSITES;
-    return parsed;
+
+    // Backfill shortCode, badgeColor, and order if missing
+    const initialMap = new Map(INITIAL_WEBSITES.map((w) => [w.id, w]));
+    return parsed.map((item, idx) => {
+      const init = initialMap.get(item.id);
+      return {
+        ...item,
+        shortCode: item.shortCode || init?.shortCode || item.name.slice(0, 2).toUpperCase(),
+        badgeColor: item.badgeColor || init?.badgeColor || '#4f46e5',
+        order: item.order ?? idx + 1,
+      };
+    });
   } catch (e) {
     console.error('Failed to load websites', e);
     return INITIAL_WEBSITES;
   }
+};
+
+export const getStoredOpenTabs = (): string[] => {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.OPEN_TABS);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+export const saveOpenTabs = (tabIds: string[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEYS.OPEN_TABS, JSON.stringify(tabIds));
+  } catch {}
+};
+
+export const getStoredActiveWebTab = (): string | null => {
+  try {
+    return localStorage.getItem(STORAGE_KEYS.ACTIVE_WEB_TAB);
+  } catch {
+    return null;
+  }
+};
+
+export const saveActiveWebTab = (id: string | null) => {
+  try {
+    if (id) {
+      localStorage.setItem(STORAGE_KEYS.ACTIVE_WEB_TAB, id);
+    } else {
+      localStorage.removeItem(STORAGE_KEYS.ACTIVE_WEB_TAB);
+    }
+  } catch {}
 };
 
 export const saveWebsites = (items: WebsiteItem[]) => {

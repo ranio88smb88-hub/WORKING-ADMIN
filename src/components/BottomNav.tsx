@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, FolderClosed, Clock, LayoutGrid, Wrench } from 'lucide-react';
+import { Home, FolderClosed, Clock, BarChart3, Menu } from 'lucide-react';
 import { TabType } from '../types';
 
 interface BottomNavProps {
@@ -40,12 +40,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     {
       id: 'ringkasan',
       label: 'Ringkasan',
-      icon: LayoutGrid,
+      icon: BarChart3,
     },
     {
       id: 'tools',
-      label: 'Tools',
-      icon: Wrench,
+      label: 'Menu',
+      icon: Menu,
     },
   ];
 
@@ -63,7 +63,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               onClick={() => onTabChange(tab.id)}
               className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all relative ${
                 isActive
-                  ? 'text-blue-600 font-semibold scale-105'
+                  ? 'text-blue-600 font-bold scale-105'
                   : 'text-stone-700 hover:text-stone-900 active:scale-95'
               }`}
             >
@@ -75,7 +75,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                   </span>
                 )}
               </div>
-              <span className={`text-[11px] mt-0.5 leading-none ${isActive ? 'font-bold text-blue-600' : 'text-stone-700'}`}>
+              <span className={`text-[11px] mt-0.5 leading-none ${isActive ? 'font-bold text-blue-600' : 'text-stone-700 font-medium'}`}>
                 {tab.label}
               </span>
               {isActive && (

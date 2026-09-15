@@ -5,17 +5,22 @@ export const INITIAL_WEBSITES: WebsiteItem[] = [
     id: 'web-1',
     order: 1,
     name: 'MONTHLY DASHBOARD',
+    shortCode: 'MD',
+    badgeColor: '#4f46e5', // indigo
     url: '',
     status: 'online',
     isPinned: true,
     isFavorite: true,
     category: 'Dashboard & Finansial',
     notes: 'Rekapitulasi omzet dan laporan bulanan cabang',
+    lastOpened: new Date(Date.now() - 15 * 60 * 1000).toISOString(), // 15 mins ago
   },
   {
     id: 'web-2',
     order: 2,
     name: 'USDT',
+    shortCode: 'US',
+    badgeColor: '#059669', // emerald
     url: '',
     status: 'online',
     isPinned: true,
@@ -27,6 +32,8 @@ export const INITIAL_WEBSITES: WebsiteItem[] = [
     id: 'web-3',
     order: 3,
     name: 'CHATBOT',
+    shortCode: 'CB',
+    badgeColor: '#0284c7', // sky
     url: '',
     status: 'online',
     isPinned: false,
@@ -38,28 +45,36 @@ export const INITIAL_WEBSITES: WebsiteItem[] = [
     id: 'web-4',
     order: 4,
     name: 'LIVE CHAT',
+    shortCode: 'LC',
+    badgeColor: '#7c3aed', // violet
     url: '',
     status: 'online',
     isPinned: true,
     isFavorite: true,
     category: 'Layanan Member',
     notes: 'Portal antrean chat member masuk',
+    lastOpened: new Date(Date.now() - 2 * 60 * 1000).toISOString(), // 2 mins ago
   },
   {
     id: 'web-5',
     order: 5,
     name: 'LIVE CHAT TAWKTO',
+    shortCode: 'TW',
+    badgeColor: '#10b981', // green
     url: '',
     status: 'online',
     isPinned: false,
     isFavorite: false,
     category: 'Layanan Member',
     notes: 'Dashboard backup tawk.to live support',
+    lastOpened: new Date(Date.now() - 8 * 60 * 1000).toISOString(), // 8 mins ago
   },
   {
     id: 'web-6',
     order: 6,
     name: 'BONUS SMB',
+    shortCode: 'BS',
+    badgeColor: '#d97706', // amber
     url: '',
     status: 'online',
     isPinned: false,
@@ -71,6 +86,8 @@ export const INITIAL_WEBSITES: WebsiteItem[] = [
     id: 'web-7',
     order: 7,
     name: 'BK AUGIPT',
+    shortCode: 'BK',
+    badgeColor: '#2563eb', // blue
     url: '',
     status: 'online',
     isPinned: false,
@@ -82,6 +99,8 @@ export const INITIAL_WEBSITES: WebsiteItem[] = [
     id: 'web-8',
     order: 8,
     name: 'ADMIN PNG',
+    shortCode: 'PNG',
+    badgeColor: '#e11d48', // rose
     url: '',
     status: 'online',
     isPinned: false,
@@ -93,6 +112,8 @@ export const INITIAL_WEBSITES: WebsiteItem[] = [
     id: 'web-9',
     order: 9,
     name: 'ADMIN PWR',
+    shortCode: 'PWR',
+    badgeColor: '#ea580c', // orange
     url: '',
     status: 'online',
     isPinned: false,
@@ -104,6 +125,8 @@ export const INITIAL_WEBSITES: WebsiteItem[] = [
     id: 'web-10',
     order: 10,
     name: 'AUTO SCATTER',
+    shortCode: 'AS',
+    badgeColor: '#0d9488', // teal
     url: '',
     status: 'online',
     isPinned: false,
@@ -115,6 +138,8 @@ export const INITIAL_WEBSITES: WebsiteItem[] = [
     id: 'web-11',
     order: 11,
     name: 'CHAT MESSENGER',
+    shortCode: 'MSG',
+    badgeColor: '#0284c7', // cyan
     url: '',
     status: 'online',
     isPinned: false,
@@ -126,12 +151,15 @@ export const INITIAL_WEBSITES: WebsiteItem[] = [
     id: 'web-12',
     order: 12,
     name: 'QRIS XPAY',
+    shortCode: 'QR',
+    badgeColor: '#dc2626', // red
     url: '',
     status: 'online',
     isPinned: true,
     isFavorite: true,
     category: 'Payment Gateway',
     notes: 'Gateway mutasi otomatis QRIS & VA settlement',
+    lastOpened: new Date(Date.now() - 20 * 60 * 1000).toISOString(), // 20 mins ago
   },
 ];
 
