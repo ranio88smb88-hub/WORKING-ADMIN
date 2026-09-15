@@ -12,8 +12,11 @@ import {
   Check,
   Minimize2,
   Share2,
+  Layers,
+  Sparkles,
 } from 'lucide-react';
 import { WebsiteItem } from '../../types';
+import { isNonComOrProtectedDomain, getDomainExtensionLabel } from '../../utils/urlUtils';
 
 interface InAppBrowserProps {
   isOpen: boolean;
@@ -25,6 +28,7 @@ interface InAppBrowserProps {
   onOpenNewTab: (websiteId: string) => void;
   onMinimize: () => void;
   onEditWebsite: (website: WebsiteItem) => void;
+  onUpdateWebsite?: (website: WebsiteItem) => void;
   onShowToast: (msg: string, type?: 'success' | 'info' | 'warning') => void;
 }
 
@@ -38,15 +42,50 @@ export const InAppBrowser: React.FC<InAppBrowserProps> = ({
   onOpenNewTab,
   onMinimize,
   onEditWebsite,
+  onUpdateWebsite,
   onShowToast,
 }) => {
   const [copiedUrl, setCopiedUrl] = useState(false);
   const [showWebsitePicker, setShowWebsitePicker] = useState(false);
   const [reloadKeys, setReloadKeys] = useState<Record<string, number>>({});
+  const [tabModes, setTabModes] = useState<Record<string, 'webview' | 'fallback'>>({});
 
   if (!isOpen && openTabIds.length === 0) return null;
 
   const activeWebsite = websites.find((w) => w.id === activeTabId) || null;
+
+  const getEffectiveTabMode = (site: WebsiteItem): 'webview' | 'fallback' => {
+    if (tabModes[site.id]) return tabModes[site.id];
+    if (site.requiresExternalBrowser || site.openMode === 'external' || isNonComOrProtectedDomain(site.url)) {
+      return 'fallback';
+    }
+    return 'webview';
+  };
+
+  const handleSetTabMode = (siteId: string, mode: 'webview' | 'fallback') => {
+    setTabModes((prev) => ({
+      ...prev,
+      [siteId]: mode,
+    }));
+  };
+
+  const handleToggleAlwaysFallback = (site: WebsiteItem) => {
+    const isCurrentlyFallback = site.requiresExternalBrowser || site.openMode === 'external';
+    const updated: WebsiteItem = {
+      ...site,
+      requiresExternalBrowser: !isCurrentlyFallback,
+      openMode: !isCurrentlyFallback ? 'external' : 'webview',
+    };
+    if (onUpdateWebsite) {
+      onUpdateWebsite(updated);
+    }
+    handleSetTabMode(site.id, !isCurrentlyFallback ? 'fallback' : 'webview');
+    onShowToast(
+      !isCurrentlyFallback
+        ? `"${site.name}" diatur selalu menggunakan Layar Fallback`
+        : `"${site.name}" dikembalikan ke mode In-App Frame`
+    );
+  };
 
   const handleReload = (id: string) => {
     setReloadKeys((prev) => ({
@@ -222,6 +261,44 @@ export const InAppBrowser: React.FC<InAppBrowserProps> = ({
 
           {/* Action buttons */}
           <div className="flex items-center gap-1 shrink-0">
+            {/* View Mode Toggle: Fallback vs In-App Frame */}
+            {activeWebsite.url && (
+              <button
+                type="button"
+                onClick={() => {
+                  const current = getEffectiveTabMode(activeWebsite);
+                  handleSetTabMode(activeWebsite.id, current === 'fallback' ? 'webview' : 'fallback');
+                  onShowToast(
+                    current === 'fallback'
+                      ? 'Beralih ke tampilan In-App Frame...'
+                      : 'Beralih ke Layar Fallback...'
+                  );
+                }}
+                title={
+                  getEffectiveTabMode(activeWebsite) === 'fallback'
+                    ? 'Beralih ke In-App WebView'
+                    : 'Beralih ke Layar Fallback (Jika web error/abu-abu)'
+                }
+                className={`px-2 py-1 rounded-lg text-[11px] font-semibold flex items-center gap-1 border transition-all ${
+                  getEffectiveTabMode(activeWebsite) === 'fallback'
+                    ? 'bg-amber-950/60 border-amber-800/80 text-amber-300 hover:bg-amber-900/80'
+                    : 'bg-stone-800 border-stone-700 text-stone-300 hover:bg-stone-700'
+                }`}
+              >
+                {getEffectiveTabMode(activeWebsite) === 'fallback' ? (
+                  <>
+                    <ShieldAlert className="w-3 h-3 text-amber-400" />
+                    <span className="hidden sm:inline">Fallback</span>
+                  </>
+                ) : (
+                  <>
+                    <Layers className="w-3 h-3 text-blue-400" />
+                    <span className="hidden sm:inline">Frame</span>
+                  </>
+                )}
+              </button>
+            )}
+
             {/* Reload button */}
             {activeWebsite.url && (
               <button
@@ -260,7 +337,7 @@ export const InAppBrowser: React.FC<InAppBrowserProps> = ({
         </div>
       )}
 
-      {/* 3. MULTI-IFRAME VIEWPORT CONTAINER (Preserves State!) */}
+      {/* 3. MULTI-IFRAME / FALLBACK VIEWPORT CONTAINER (Preserves State!) */}
       <div className="flex-1 bg-stone-100 relative overflow-hidden">
         {openTabIds.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center p-6 text-center text-stone-600 bg-white">
@@ -286,6 +363,7 @@ export const InAppBrowser: React.FC<InAppBrowserProps> = ({
             if (!site) return null;
             const isActive = activeTabId === tabId;
             const reloadKey = reloadKeys[site.id] || 0;
+            const tabMode = getEffectiveTabMode(site);
 
             return (
               <div
@@ -294,44 +372,152 @@ export const InAppBrowser: React.FC<InAppBrowserProps> = ({
                 className="h-full w-full relative"
               >
                 {site.url && site.url.trim() ? (
-                  <div className="h-full w-full flex flex-col bg-white">
-                    {/* Security notice / External browser fallback banner */}
-                    <div className="bg-amber-50 border-b border-amber-200/80 px-3 py-1.5 flex items-center justify-between text-amber-900 text-[11px] shrink-0">
-                      <div className="flex items-center gap-1.5 truncate">
-                        <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span className="truncate">
-                          Jika website memblokir WebView karena proteksi server, buka di browser luar.
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2 shrink-0 ml-2">
-                        <button
-                          type="button"
-                          onClick={() => handleReload(site.id)}
-                          className="font-semibold text-amber-800 hover:text-amber-950 underline"
-                        >
-                          Coba Lagi
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleOpenExternal(site.url)}
-                          className="font-bold text-blue-700 hover:text-blue-900 flex items-center gap-0.5"
-                        >
-                          <span>Buka di Browser</span>
-                          <ExternalLink className="w-3 h-3" />
-                        </button>
+                  tabMode === 'fallback' ? (
+                    /* SECTION 21 FALLBACK SCREEN - Clean, native, no ugly Chrome sad face! */
+                    <div className="h-full w-full flex flex-col items-center justify-center p-4 sm:p-6 bg-stone-100 text-center overflow-y-auto">
+                      <div className="w-full max-w-sm bg-white rounded-3xl p-6 shadow-xl border border-stone-200/80 flex flex-col items-center animate-in fade-in zoom-in-95 duration-200">
+                        {/* Site Identity Header */}
+                        <div className="relative mb-3">
+                          {site.logoUrl ? (
+                            <img
+                              src={site.logoUrl}
+                              alt={site.name}
+                              className="w-16 h-16 rounded-2xl object-cover border-2 border-stone-200 shadow-md"
+                            />
+                          ) : (
+                            <div
+                              className="w-16 h-16 rounded-2xl text-white font-black text-xl flex items-center justify-center shadow-md"
+                              style={{ backgroundColor: site.badgeColor || '#4f46e5' }}
+                            >
+                              {site.shortCode}
+                            </div>
+                          )}
+                          <div className="absolute -bottom-1 -right-1 bg-amber-500 text-white p-1 rounded-full shadow-xs">
+                            <ShieldAlert className="w-3.5 h-3.5" />
+                          </div>
+                        </div>
+
+                        <h2 className="text-base font-bold text-stone-900 tracking-tight">
+                          {site.name}
+                        </h2>
+
+                        {/* URL Pill with Copy */}
+                        <div className="w-full mt-2 mb-3 px-3 py-1.5 rounded-xl bg-stone-50 border border-stone-200 flex items-center justify-between text-xs text-stone-600 font-mono">
+                          <span className="truncate flex-1 text-left text-[11px]">
+                            {site.url}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleCopyUrl(site.url)}
+                            className="p-1 hover:text-stone-900 text-stone-400 shrink-0 ml-1"
+                            title="Salin URL"
+                          >
+                            {copiedUrl ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+
+                        {/* Domain Tag */}
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold mb-3">
+                          <ShieldAlert className="w-3 h-3 text-amber-700" />
+                          <span>Proteksi Anti-Embed {getDomainExtensionLabel(site.url)}</span>
+                        </div>
+
+                        {/* SECTION 21 MANDATED TEXT */}
+                        <div className="space-y-1.5 mb-5 text-center">
+                          <h3 className="text-sm sm:text-base font-black text-stone-900">
+                            Website ini membutuhkan browser eksternal.
+                          </h3>
+                          <p className="text-xs text-stone-600 leading-relaxed px-1">
+                            Domain ini (<strong className="text-stone-800">{getDomainExtensionLabel(site.url) || 'khusus'}</strong>) menerapkan proteksi keamanan server (X-Frame-Options) yang memblokir tampilan di dalam WebView. Silakan buka di browser eksternal untuk melanjutkan pekerjaan tanpa keluar dari ADMIN 1 FOR ALL.
+                          </p>
+                        </div>
+
+                        {/* MANDATED ACTION BUTTONS (Section 21) */}
+                        <div className="w-full space-y-2">
+                          {/* [ BUKA DI BROWSER ] */}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenExternal(site.url)}
+                            className="w-full py-3 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 active:scale-98 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-blue-500/20 transition-all cursor-pointer"
+                          >
+                            <span>BUKA DI BROWSER</span>
+                            <ExternalLink className="w-4 h-4" />
+                          </button>
+
+                          {/* [ COBA LAGI ] */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              handleReload(site.id);
+                              handleSetTabMode(site.id, 'webview');
+                            }}
+                            className="w-full py-2.5 px-4 rounded-xl bg-stone-100 hover:bg-stone-200 active:scale-98 text-stone-700 font-bold text-xs flex items-center justify-center gap-2 border border-stone-200 transition-all cursor-pointer"
+                          >
+                            <RotateCw className="w-3.5 h-3.5 text-stone-500" />
+                            <span>COBA LAGI</span>
+                          </button>
+                        </div>
+
+                        {/* Preference toggle */}
+                        <div className="mt-4 pt-3 border-t border-stone-100 w-full flex items-center justify-center">
+                          <button
+                            type="button"
+                            onClick={() => handleToggleAlwaysFallback(site)}
+                            className="text-[11px] text-stone-500 hover:text-stone-800 flex items-center gap-1.5 cursor-pointer font-medium"
+                          >
+                            <div className={`w-3.5 h-3.5 rounded-xs border flex items-center justify-center ${
+                              site.requiresExternalBrowser || site.openMode === 'external'
+                                ? 'bg-blue-600 border-blue-600 text-white'
+                                : 'border-stone-300 bg-white'
+                            }`}>
+                              {(site.requiresExternalBrowser || site.openMode === 'external') && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                            </div>
+                            <span>Selalu gunakan mode Fallback untuk web ini</span>
+                          </button>
+                        </div>
                       </div>
                     </div>
+                  ) : (
+                    /* IN-APP IFRAME VIEW */
+                    <div className="h-full w-full flex flex-col bg-white">
+                      {/* Security notice / Quick Fallback Switch Banner */}
+                      <div className="bg-amber-50 border-b border-amber-200/90 px-3 py-1.5 flex items-center justify-between text-amber-950 text-[11px] shrink-0">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <ShieldAlert className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                          <span className="truncate">
+                            Layar abu-abu / bermasalah? Domain ini mungkin memblokir frame.
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0 ml-2">
+                          <button
+                            type="button"
+                            onClick={() => handleSetTabMode(site.id, 'fallback')}
+                            className="font-bold text-amber-900 hover:text-amber-950 underline cursor-pointer"
+                          >
+                            Layar Fallback
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenExternal(site.url)}
+                            className="font-bold text-blue-700 hover:text-blue-900 flex items-center gap-0.5 cursor-pointer"
+                          >
+                            <span>Buka di Browser</span>
+                            <ExternalLink className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
 
-                    {/* Persistent Embedded Iframe */}
-                    <iframe
-                      key={`iframe-${site.id}-${reloadKey}`}
-                      src={site.url}
-                      title={site.name}
-                      className="w-full flex-1 border-none bg-white"
-                      allow="camera; microphone; clipboard-read; clipboard-write; fullscreen"
-                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
-                    />
-                  </div>
+                      {/* Persistent Embedded Iframe */}
+                      <iframe
+                        key={`iframe-${site.id}-${reloadKey}`}
+                        src={site.url}
+                        title={site.name}
+                        className="w-full flex-1 border-none bg-white"
+                        allow="camera; microphone; clipboard-read; clipboard-write; fullscreen"
+                        sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads"
+                      />
+                    </div>
+                  )
                 ) : (
                   /* If URL is not configured yet */
                   <div className="h-full flex flex-col items-center justify-center p-6 text-center text-stone-600 bg-white">

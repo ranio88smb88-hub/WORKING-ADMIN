@@ -75,6 +75,8 @@ export interface WebsiteItem {
   category?: string;
   notes?: string;
   lastOpened?: string;
+  openMode?: 'webview' | 'external';
+  requiresExternalBrowser?: boolean;
 }
 
 export interface BrowserTab {

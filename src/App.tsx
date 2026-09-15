@@ -323,6 +323,11 @@ export default function App() {
         onOpenNewTab={handleOpenWebsiteInApp}
         onMinimize={() => setIsBrowserOpen(false)}
         onEditWebsite={(w) => setEditingWebsiteTarget(w)}
+        onUpdateWebsite={(updated) => {
+          handleUpdateWebsites(
+            websites.map((w) => (w.id === updated.id ? updated : w))
+          );
+        }}
         onShowToast={showToast}
       />
 

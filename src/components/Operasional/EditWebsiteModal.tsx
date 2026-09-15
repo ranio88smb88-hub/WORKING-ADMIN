@@ -10,8 +10,12 @@ import {
   Pin,
   Star,
   Check,
+  ShieldAlert,
+  ExternalLink,
+  Layers,
 } from 'lucide-react';
 import { WebsiteItem } from '../../types';
+import { isNonComOrProtectedDomain, getDomainExtensionLabel } from '../../utils/urlUtils';
 
 interface EditWebsiteModalProps {
   isOpen: boolean;
@@ -46,6 +50,8 @@ export const EditWebsiteModal: React.FC<EditWebsiteModalProps> = ({
   const [category, setCategory] = useState('');
   const [isPinned, setIsPinned] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [openMode, setOpenMode] = useState<'webview' | 'external'>('webview');
+  const [requiresExternalBrowser, setRequiresExternalBrowser] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -60,10 +66,17 @@ export const EditWebsiteModal: React.FC<EditWebsiteModalProps> = ({
       setCategory(website.category || '');
       setIsPinned(Boolean(website.isPinned));
       setIsFavorite(Boolean(website.isFavorite));
+      
+      const isSensitive = website.requiresExternalBrowser || website.openMode === 'external' || isNonComOrProtectedDomain(website.url);
+      setOpenMode(website.openMode || (isSensitive ? 'external' : 'webview'));
+      setRequiresExternalBrowser(Boolean(website.requiresExternalBrowser || isSensitive));
     }
   }, [website, isOpen]);
 
   if (!isOpen || !website) return null;
+
+  const isDetectedNonCom = isNonComOrProtectedDomain(url);
+  const extLabel = getDomainExtensionLabel(url);
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -103,6 +116,8 @@ export const EditWebsiteModal: React.FC<EditWebsiteModalProps> = ({
       category: category.trim() || website.category,
       isPinned,
       isFavorite,
+      openMode,
+      requiresExternalBrowser: requiresExternalBrowser || openMode === 'external',
     });
     onClose();
   };
@@ -278,7 +293,14 @@ export const EditWebsiteModal: React.FC<EditWebsiteModalProps> = ({
               <input
                 type="text"
                 value={url}
-                onChange={(e) => setUrl(e.target.value)}
+                onChange={(e) => {
+                  const newUrl = e.target.value;
+                  setUrl(newUrl);
+                  if (isNonComOrProtectedDomain(newUrl)) {
+                    setOpenMode('external');
+                    setRequiresExternalBrowser(true);
+                  }
+                }}
                 placeholder="https://contoh-link-kerja.com"
                 className="w-full pl-9 pr-3 py-2 rounded-xl border border-stone-200 bg-stone-50 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 text-stone-900 font-mono text-xs"
               />
@@ -286,6 +308,82 @@ export const EditWebsiteModal: React.FC<EditWebsiteModalProps> = ({
             <p className="text-[10px] text-stone-400 mt-1">
               Kosongkan jika URL belum siap. Akan muncul status &quot;URL belum diatur&quot;.
             </p>
+
+            {/* Smart notice if .xyz, .org, or non-.com domain is detected */}
+            {isDetectedNonCom && (
+              <div className="mt-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200/90 text-amber-900 text-xs flex items-start gap-2">
+                <ShieldAlert className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="font-bold text-[11px] leading-tight">
+                    Domain {extLabel || 'Khusus'} Terdeteksi (Proteksi Anti-Embed)
+                  </p>
+                  <p className="text-[10px] text-amber-800 leading-normal">
+                    Link berekstensi seperti <strong className="font-bold">.xyz, .org</strong> atau non-.com umumnya memblokir iframe (menampilkan layar abu-abu error).
+                    Sistem otomatis mengaktifkan <strong>Mode Layar Fallback & Browser Eksternal</strong> agar website dapat dibuka dengan lancar.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Mode Tampilan Website (Section 21 Fallback) */}
+          <div className="p-3 bg-stone-50 rounded-2xl border border-stone-200/80 space-y-2">
+            <label className="block text-xs font-bold text-stone-800">
+              Metode Tampilan Tab
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenMode('webview');
+                  setRequiresExternalBrowser(false);
+                }}
+                className={`p-2 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                  openMode === 'webview' && !requiresExternalBrowser
+                    ? 'border-blue-600 bg-blue-50/50 text-blue-900 ring-1 ring-blue-500'
+                    : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-xs flex items-center gap-1.5">
+                    <Layers className="w-3.5 h-3.5 text-blue-600" />
+                    In-App Frame
+                  </span>
+                  {openMode === 'webview' && !requiresExternalBrowser && (
+                    <span className="w-2 h-2 rounded-full bg-blue-600" />
+                  )}
+                </div>
+                <p className="text-[10px] text-stone-500 leading-tight">
+                  Tampil langsung di dalam aplikasi (jika web mengizinkan embed)
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setOpenMode('external');
+                  setRequiresExternalBrowser(true);
+                }}
+                className={`p-2 rounded-xl border text-left flex flex-col justify-between transition-all ${
+                  openMode === 'external' || requiresExternalBrowser
+                    ? 'border-amber-500 bg-amber-50/50 text-amber-950 ring-1 ring-amber-500'
+                    : 'border-stone-200 bg-white text-stone-600 hover:border-stone-300'
+                }`}
+              >
+                <div className="flex items-center justify-between mb-1">
+                  <span className="font-bold text-xs flex items-center gap-1.5 text-amber-900">
+                    <ExternalLink className="w-3.5 h-3.5 text-amber-600" />
+                    Mode Fallback
+                  </span>
+                  {(openMode === 'external' || requiresExternalBrowser) && (
+                    <span className="w-2 h-2 rounded-full bg-amber-500" />
+                  )}
+                </div>
+                <p className="text-[10px] text-amber-800/80 leading-tight font-medium">
+                  Cegah layar abu-abu untuk link .xyz, .org, atau panel terproteksi
+                </p>
+              </button>
+            </div>
           </div>
 
           {/* 4. Category & Notes */}

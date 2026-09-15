@@ -16,9 +16,11 @@ import {
   ArrowRight,
   FolderClosed,
   Zap,
+  ShieldAlert,
 } from 'lucide-react';
 import { WebsiteItem, ReportItem, TabType } from '../../types';
 import { EditWebsiteModal } from './EditWebsiteModal';
+import { isNonComOrProtectedDomain } from '../../utils/urlUtils';
 
 interface OperasionalTabProps {
   websites: WebsiteItem[];
@@ -572,6 +574,12 @@ export const OperasionalTab: React.FC<OperasionalTabProps> = ({
                         {isOpenTab && (
                           <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
                             Tab Aktif
+                          </span>
+                        )}
+                        {(item.requiresExternalBrowser || item.openMode === 'external' || isNonComOrProtectedDomain(item.url)) && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.2 rounded-md bg-amber-50 text-amber-800 border border-amber-200 flex items-center gap-0.5">
+                            <ShieldAlert className="w-2.5 h-2.5 text-amber-600" />
+                            Fallback
                           </span>
                         )}
                       </div>
