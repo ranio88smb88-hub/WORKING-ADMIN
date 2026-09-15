@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      (function () {
+        try {
+          var win = typeof window !== 'undefined' ? window : (typeof globalThis !== 'undefined' ? globalThis : self);
+          if (!win) return;
+
+          var _customFetch = null;
+          var origDefineProperty = Object.defineProperty;
+
+          Object.defineProperty = function (target, prop, descriptor) {
+            if (
+              (target === win ||
+                (win.Window && target === win.Window.prototype) ||
+                target === Object.getPrototypeOf(win)) &&
+              prop === 'fetch' &&
+              descriptor
+            ) {
+              var originalGet = descriptor.get;
+              var originalSet = descriptor.set;
+              var patchedDescriptor = Object.assign({}, descriptor, {
+                configurable: true,
+                get: function () {
+                  if (_customFetch !== null) return _customFetch;
+                  if (originalGet) return originalGet.call(this);
+                  return descriptor.value;
+                },
+                set: function (val) {
+                  _customFetch = val;
+                  if (originalSet) {
+                    originalSet.call(this, val);
+                  }
+                },
+              });
+              return origDefineProperty.call(Object, target, prop, patchedDescriptor);
+            }
+            return origDefineProperty.apply(Object, arguments);
+          };
+
+          try {
+            var initialFetch = typeof win.fetch === 'function' ? win.fetch.bind(win) : win.fetch;
+            origDefineProperty.call(Object, win, 'fetch', {
+              configurable: true,
+              enumerable: true,
+              get: function () {
+                return _customFetch !== null ? _customFetch : initialFetch;
+              },
+              set: function (val) {
+                _customFetch = val;
+              },
+            });
+          } catch (e) {}
+        } catch (err) {}
+      })();
+    </script>
+    <title>Mobile WorkVault</title>
+    <meta name="description" content="ADMIN WORK CENTER - Pusat operasional kerja modern untuk website kerja, berkas kerja, dan manajemen report tertunda." />
+    <meta property="og:title" content="Mobile WorkVault" />
+    <meta property="og:description" content="ADMIN WORK CENTER - Pusat operasional kerja modern untuk website kerja, berkas kerja, dan manajemen report tertunda." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

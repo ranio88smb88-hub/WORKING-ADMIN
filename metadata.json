@@ -1,0 +1,6 @@
+{
+  "name": "Mobile WorkVault",
+  "description": "ADMIN WORK CENTER - Pusat operasional kerja modern untuk website kerja, berkas kerja, dan manajemen report tertunda.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
